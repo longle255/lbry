@@ -1554,7 +1554,8 @@ class Daemon(AuthJSONRPCServer):
                         [--name=<name>]
 
         Options:
-            -a                          : delete file from downloads and delete stored blobs
+            -a                          : if there are multiple matching files, allow the deletion
+                                            of multiple files. Otherwise do not delete anything.
             -f                          : delete only from downloads, do not delete blobs
             --sd_hash=<sd_hash>         : delete by file sd hash
             --file_name<file_name>      : delete by file name in downloads folder
@@ -1574,7 +1575,8 @@ class Daemon(AuthJSONRPCServer):
             if not delete_all:
                 log.warning("There are %i files to delete, use narrower filters to select one",
                             len(lbry_files))
-                result = False
+                response = yield self._render_response(False)
+                defer.returnValue(response)
             else:
                 log.warning("Deleting %i files",
                             len(lbry_files))
@@ -1591,6 +1593,7 @@ class Daemon(AuthJSONRPCServer):
                                                               delete_file=delete_target_file)
                 log.info("Deleted %s (%s)", file_name, utils.short_hash(stream_hash))
             result = True
+
         response = yield self._render_response(result)
         defer.returnValue(response)
 

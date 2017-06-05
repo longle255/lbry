@@ -19,6 +19,7 @@ at anytime.
 
 ### Fixed
   * Download analytics error
+  * Fixed flag options in file_delete API command
   *
 
 ### Deprecated

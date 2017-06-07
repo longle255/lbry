@@ -665,12 +665,11 @@ class Daemon(AuthJSONRPCServer):
                                                conf.settings['data_rate'], timeout,
                                                download_directory, file_name)
             try:
-                download = self.streams[claim_id].start(stream_info, name)
+                lbry_file = yield self.streams[claim_id].start(stream_info, name)
                 self.streams[claim_id].finished_deferred.addCallback(
                     lambda _: self.analytics_manager.send_download_finished(download_id,
                                                                             name,
                                                                             stream_info))
-                lbry_file = yield download
                 result = yield self._get_lbry_file_dict(lbry_file, full_status=True)
                 del self.streams[claim_id]
             except Exception as err:

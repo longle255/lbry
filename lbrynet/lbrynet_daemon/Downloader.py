@@ -59,7 +59,7 @@ class GetStream(object):
         self.checker = LoopingCall(self.check_status)
 
         # fired when the download is complete
-        self.finished_deferred = defer.Deferred(None)
+        self.finished_deferred = None
         # fired after the metadata and the first data blob have been downloaded
         self.data_downloading_deferred = defer.Deferred(None)
 

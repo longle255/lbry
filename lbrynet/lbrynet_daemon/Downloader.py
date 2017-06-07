@@ -38,7 +38,7 @@ def safe_stop(looping_call):
 
 
 class GetStream(object):
-    def __init__(self, sd_identifier, session, wallet, lbry_file_manager, exchange_rate_manager,
+    def __init__(self, sd_identifier, session, exchange_rate_manager,
                  max_key_fee, data_rate=None, timeout=None, download_directory=None,
                  file_name=None):
         self.timeout = timeout or conf.settings['download_timeout']
@@ -49,11 +49,10 @@ class GetStream(object):
         self.timeout_counter = 0
         self.code = None
         self.sd_hash = None
-        self.wallet = wallet
         self.session = session
+        self.wallet = self.session.wallet
         self.exchange_rate_manager = exchange_rate_manager
         self.payment_rate_manager = self.session.payment_rate_manager
-        self.lbry_file_manager = lbry_file_manager
         self.sd_identifier = sd_identifier
         self.downloader = None
         self.checker = LoopingCall(self.check_status)

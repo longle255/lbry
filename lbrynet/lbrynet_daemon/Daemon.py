@@ -660,7 +660,6 @@ class Daemon(AuthJSONRPCServer):
             self.analytics_manager.send_download_started(download_id, name, stream_info)
 
             self.streams[claim_id] = GetStream(self.sd_identifier, self.session,
-                                               self.session.wallet, self.lbry_file_manager,
                                                self.exchange_rate_manager, self.max_key_fee,
                                                conf.settings['data_rate'], timeout,
                                                download_directory, file_name)
@@ -704,8 +703,6 @@ class Daemon(AuthJSONRPCServer):
         """Makes, adds and starts a stream"""
         self.streams[name] = GetStream(self.sd_identifier,
                                        self.session,
-                                       self.session.wallet,
-                                       self.lbry_file_manager,
                                        self.exchange_rate_manager,
                                        max_key_fee=self.max_key_fee,
                                        data_rate=self.data_rate,

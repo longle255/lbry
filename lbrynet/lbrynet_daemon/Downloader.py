@@ -171,8 +171,7 @@ class GetStream(object):
 
         if stream_info.has_fee:
             try:
-                fee = yield threads.deferToThread(self.check_fee_and_convert,
-                                                  stream_info.source_fee)
+                fee = yield self.check_fee_and_convert(stream_info.source_fee)
             except Exception as err:
                 self._running = False
                 self.finished_deferred.errback(err)
@@ -189,6 +188,8 @@ class GetStream(object):
         self.set_status(DOWNLOAD_RUNNING_CODE, name)
         if fee:
             yield self.pay_key_fee(fee, name)
+
+
         log.info("Downloading lbry://%s (%s) --> %s", name, self.sd_hash[:6], self.download_path)
         self.finished_deferred = self.downloader.start()
         self.finished_deferred.addCallback(self.finish, name)

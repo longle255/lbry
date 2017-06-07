@@ -791,7 +791,11 @@ class Wallet(object):
         defer.returnValue(results)
 
     @defer.inlineCallbacks
-    def resolve(self, check_cache, page, page_size, *uris):
+    def resolve(self, *uris, **kwargs):
+        check_cache = kwargs.get('check_cache', True)
+        page = kwargs.get('page', 0)
+        page_size = kwargs.get('page_size', 10)
+
         result = {}
         needed = []
         for uri in uris:

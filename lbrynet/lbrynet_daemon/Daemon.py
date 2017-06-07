@@ -737,7 +737,7 @@ class Daemon(AuthJSONRPCServer):
         """
 
         parsed = parse_lbry_uri(name)
-        resolution = yield self.session.wallet.resolve(not force_refresh, 0, 10, parsed.name)
+        resolution = yield self.session.wallet.resolve(parsed.name, check_cache=not force_refresh)
         if parsed.name in resolution:
             result = resolution[parsed.name]
             defer.returnValue(result)
@@ -792,7 +792,7 @@ class Daemon(AuthJSONRPCServer):
 
         cost = self._get_est_cost_from_stream_size(size)
 
-        resolved = yield self.session.wallet.resolve(True, 0, 10, uri)
+        resolved = yield self.session.wallet.resolve(uri)
 
         if uri in resolved and 'claim' in resolved[uri]:
             claim = ClaimDict.load_dict(resolved[uri]['claim']['value'])
@@ -839,7 +839,7 @@ class Daemon(AuthJSONRPCServer):
         Resolve a name and return the estimated stream cost
         """
 
-        resolved = yield self.session.wallet.resolve(True, 0, 10, uri)
+        resolved = yield self.session.wallet.resolve(uri)
         if resolved:
             claim_response = resolved[uri]
         else:
@@ -1346,7 +1346,7 @@ class Daemon(AuthJSONRPCServer):
         Resolve a LBRY URI
 
         Usage:
-            resolve (<uri> | --uri=<uri>) [<uris>...] [-f]
+            resolve [-f] (<uri> | --uri=<uri>) [<uris>...]
 
         Options:
             -f  : force refresh and ignore cache
@@ -1404,7 +1404,7 @@ class Daemon(AuthJSONRPCServer):
         uris = tuple(uris)
         if uri is not None:
             uris += (uri, )
-        resolved = yield self.session.wallet.resolve(not force, 0, 10, *uris)
+        resolved = yield self.session.wallet.resolve(*uris, check_cache=not force)
         if uri is not None and uris == (uri, ) and resolved:
             resolved = resolved[uri]
         results = yield self._render_response(resolved)
@@ -1453,7 +1453,7 @@ class Daemon(AuthJSONRPCServer):
         timeout = timeout if timeout is not None else self.download_timeout
         download_directory = download_directory or self.download_directory
 
-        resolved_result = yield self.session.wallet.resolve(True, 0, 10, uri)
+        resolved_result = yield self.session.wallet.resolve(uri)
         if resolved_result and uri in resolved_result:
             resolved = resolved_result[uri]
         else:
@@ -2015,7 +2015,8 @@ class Daemon(AuthJSONRPCServer):
             elif parsed.path:
                 raise Exception("%s is a claim in a channel" % parsed.path)
 
-        resolved = yield self.session.wallet.resolve(False, page, page_size, *uris)
+        resolved = yield self.session.wallet.resolve(*uris, check_cache=False, page=page,
+                                                     page_size=page_size)
         results = {}
         for u in resolved:
             if 'error' in resolved[u]:
@@ -2422,7 +2423,7 @@ t
             sd_blob.close_read_handle(sd_blob_file)
             return decoded_sd_blob
 
-        resolved_result = yield self.session.wallet.resolve(True, 0, 10, uri)
+        resolved_result = yield self.session.wallet.resolve(uri)
         if resolved_result and uri in resolved_result:
             resolved = resolved_result[uri]
         else:

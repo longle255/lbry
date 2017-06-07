@@ -170,12 +170,7 @@ class GetStream(object):
         self.sd_hash = stream_info.source_hash
 
         if stream_info.has_fee:
-            try:
-                fee = yield self.check_fee_and_convert(stream_info.source_fee)
-            except Exception as err:
-                self._running = False
-                self.finished_deferred.errback(err)
-                raise err
+            fee = yield self.check_fee_and_convert(stream_info.source_fee)
         else:
             fee = None
 
@@ -196,11 +191,23 @@ class GetStream(object):
 
     @defer.inlineCallbacks
     def start(self, stream_info, name):
+        safe_start(self.checker)
+
         try:
-            safe_start(self.checker)
-            self.download(stream_info, name)
-            yield self.data_downloading_deferred
-            defer.returnValue(self.downloader)
+            yield self.download(stream_info, name)
         except Exception as err:
+            self._running = False
             safe_stop(self.checker)
-            raise err
+            raise
+
+
+        try:
+            yield self.data_downloading_deferred
+        except Exception as err:
+            self.finished_deferred.errback(err)
+            self._running = False
+            safe_stop(self.checker)
+            raise
+
+        defer.returnValue(self.downloader)
+

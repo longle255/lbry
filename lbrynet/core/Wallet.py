@@ -685,18 +685,6 @@ class Wallet(object):
         defer.returnValue(my_claim)
 
     @defer.inlineCallbacks
-    def get_claim_info(self, name, txid=None, nout=None, claim_id=None, check_expire=True):
-        if claim_id is not None:
-            results = yield self.get_claim(claim_id, check_expire)
-            if results['name'] != name:
-                raise Exception("Name does not match claim referenced by id")
-        elif txid is None or nout is None:
-            results = yield self.get_claim_by_name(name)
-        else:
-            results = yield self.get_claim_by_outpoint(ClaimOutpoint(txid, nout), check_expire)
-        defer.returnValue(results)
-
-    @defer.inlineCallbacks
     def _handle_claim_result(self, results, update_caches=True):
         if not results:
             raise UnknownNameError("No results to return")

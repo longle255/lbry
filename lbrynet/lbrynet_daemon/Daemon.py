@@ -46,7 +46,7 @@ from lbrynet.core.looping_call_manager import LoopingCallManager
 from lbrynet.core.server.BlobRequestHandler import BlobRequestHandlerFactory
 from lbrynet.core.server.ServerProtocol import ServerProtocolFactory
 from lbrynet.core.Error import InsufficientFundsError, UnknownNameError, NoSuchSDHash
-from lbrynet.core.Error import NoSuchStreamHash
+from lbrynet.core.Error import NoSuchStreamHash, UnknownClaimID, UnknownURI
 
 log = logging.getLogger(__name__)
 
@@ -727,6 +727,7 @@ class Daemon(AuthJSONRPCServer):
         f.close()
         return defer.succeed(True)
 
+    @defer.inlineCallbacks
     def _resolve_name(self, name, force_refresh=False):
         """Resolves a name. Checks the cache first before going out to the blockchain.
 
@@ -734,10 +735,12 @@ class Daemon(AuthJSONRPCServer):
             name: the lbry://<name> to resolve
             force_refresh: if True, always go out to the blockchain to resolve.
         """
-        if name.startswith('lbry://'):
-            raise ValueError('name {} should not start with lbry://'.format(name))
-        helper = _ResolveNameHelper(self, name, force_refresh)
-        return helper.get_deferred()
+
+        parsed = parse_lbry_uri(name)
+        resolution = yield self.session.wallet.resolve(not force_refresh, 0, 10, parsed.name)
+        if parsed.name in resolution:
+            result = resolution[parsed.name]
+            defer.returnValue(result)
 
     def _get_or_download_sd_blob(self, blob, sd_hash):
         if blob:
@@ -1326,9 +1329,11 @@ class Daemon(AuthJSONRPCServer):
                 outpoint = ClaimOutpoint(txid, nout)
                 claim_results = yield self.session.wallet.get_claim_by_outpoint(outpoint)
             else:
-                claim_results = yield self.session.wallet.get_claim_by_name(name)
+                claim_results = yield self.session.wallet.resolve(name)
+                if claim_results:
+                    claim_results = claim_results[name]
             result = format_json_out_amount_as_float(claim_results)
-        except (TypeError, UnknownNameError):
+        except (TypeError, UnknownNameError, UnknownClaimID, UnknownURI):
             result = False
         response = yield self._render_response(result)
         defer.returnValue(response)
@@ -2479,58 +2484,6 @@ t
         out = (pos_arg, pos_args, pos_arg2, pos_arg3)
         response = yield self._render_response(out)
         defer.returnValue(response)
-
-
-class _ResolveNameHelper(object):
-    def __init__(self, daemon, name, force_refresh):
-        self.daemon = daemon
-        self.name = name
-        self.force_refresh = force_refresh
-
-    def get_deferred(self):
-        if self.need_fresh_stream():
-            log.info("Resolving stream info for lbry://%s", self.name)
-            d = self.wallet.get_claim_by_name(self.name)
-            d.addCallback(self._cache_stream_info)
-        else:
-            log.debug("Returning cached stream info for lbry://%s", self.name)
-            d = defer.succeed(self.name_data['claim_metadata'])
-        return d
-
-    @property
-    def name_data(self):
-        return self.daemon.name_cache[self.name]
-
-    @property
-    def wallet(self):
-        return self.daemon.session.wallet
-
-    def now(self):
-        return self.daemon._get_long_count_timestamp()
-
-    def _add_txid(self, txid):
-        self.name_data['txid'] = txid
-        return defer.succeed(None)
-
-    def _cache_stream_info(self, stream_info):
-        self.daemon.name_cache[self.name] = {
-            'claim_metadata': stream_info['value'],
-            'timestamp': self.now()
-        }
-        d = self._add_txid(stream_info['txid'])
-        d.addCallback(lambda _: self.daemon._update_claim_cache())
-        d.addCallback(lambda _: self.name_data['claim_metadata'])
-        return d
-
-    def need_fresh_stream(self):
-        return self.force_refresh or not self.is_in_cache() or self.is_cached_name_expired()
-
-    def is_in_cache(self):
-        return self.name in self.daemon.name_cache
-
-    def is_cached_name_expired(self):
-        time_in_cache = self.now() - self.name_data['timestamp']
-        return time_in_cache >= self.daemon.cache_time
 
 
 def loggly_time_string(dt):

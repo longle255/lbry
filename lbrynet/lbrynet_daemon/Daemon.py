@@ -1343,7 +1343,7 @@ class Daemon(AuthJSONRPCServer):
     @AuthJSONRPCServer.flags(force='-f')
     def jsonrpc_resolve(self, force=False, uri=None, uris=[]):
         """
-        Resolve a LBRY URI
+        Resolve given LBRY URIs
 
         Usage:
             resolve [-f] (<uri> | --uri=<uri>) [<uris>...]
@@ -1352,52 +1352,53 @@ class Daemon(AuthJSONRPCServer):
             -f  : force refresh and ignore cache
 
         Returns:
-            None if nothing can be resolved. If only one uri was resolved, returns the
-            below format. It multiple uris are resolved, returns results as formatted below, keyed
-            by uri.
+            Dictionary of results, keyed by uri
+            '<uri>': {
+                    If a resolution error occurs:
+                    'error': Error message
 
-            If the uri resolves to a channel or a claim in a channel:
-                'certificate': {
-                    'address': (str) claim address,
-                    'amount': (float) claim amount,
-                    'effective_amount': (float) claim amount including supports,
-                    'claim_id': (str) claim id,
-                    'claim_sequence': (int) claim sequence number,
-                    'decoded_claim': (bool) whether or not the claim value was decoded,
-                    'height': (int) claim height,
-                    'depth': (int) claim depth,
-                    'has_signature': (bool) included if decoded_claim
-                    'name': (str) claim name,
-                    'supports: (list) list of supports [{'txid': txid,
-                                                         'nout': nout,
-                                                         'amount': amount}],
-                    'txid': (str) claim txid,
-                    'nout': (str) claim nout,
-                    'signature_is_valid': (bool), included if has_signature,
-                    'value': ClaimDict if decoded, otherwise hex string
-                }
+                    If the uri resolves to a channel or a claim in a channel:
+                    'certificate': {
+                        'address': (str) claim address,
+                        'amount': (float) claim amount,
+                        'effective_amount': (float) claim amount including supports,
+                        'claim_id': (str) claim id,
+                        'claim_sequence': (int) claim sequence number,
+                        'decoded_claim': (bool) whether or not the claim value was decoded,
+                        'height': (int) claim height,
+                        'depth': (int) claim depth,
+                        'has_signature': (bool) included if decoded_claim
+                        'name': (str) claim name,
+                        'supports: (list) list of supports [{'txid': txid,
+                                                             'nout': nout,
+                                                             'amount': amount}],
+                        'txid': (str) claim txid,
+                        'nout': (str) claim nout,
+                        'signature_is_valid': (bool), included if has_signature,
+                        'value': ClaimDict if decoded, otherwise hex string
+                    }
 
-            If the uri resolves to a claim:
-                'claim': {
-                    'address': (str) claim address,
-                    'amount': (float) claim amount,
-                    'effective_amount': (float) claim amount including supports,
-                    'claim_id': (str) claim id,
-                    'claim_sequence': (int) claim sequence number,
-                    'decoded_claim': (bool) whether or not the claim value was decoded,
-                    'height': (int) claim height,
-                    'depth': (int) claim depth,
-                    'has_signature': (bool) included if decoded_claim
-                    'name': (str) claim name,
-                    'channel_name': (str) channel name if claim is in a channel
-                    'supports: (list) list of supports [{'txid': txid,
-                                                         'nout': nout,
-                                                         'amount': amount}]
-                    'txid': (str) claim txid,
-                    'nout': (str) claim nout,
-                    'signature_is_valid': (bool), included if has_signature,
-                    'value': ClaimDict if decoded, otherwise hex string
-                }
+                    If the uri resolves to a claim:
+                    'claim': {
+                        'address': (str) claim address,
+                        'amount': (float) claim amount,
+                        'effective_amount': (float) claim amount including supports,
+                        'claim_id': (str) claim id,
+                        'claim_sequence': (int) claim sequence number,
+                        'decoded_claim': (bool) whether or not the claim value was decoded,
+                        'height': (int) claim height,
+                        'depth': (int) claim depth,
+                        'has_signature': (bool) included if decoded_claim
+                        'name': (str) claim name,
+                        'channel_name': (str) channel name if claim is in a channel
+                        'supports: (list) list of supports [{'txid': txid,
+                                                             'nout': nout,
+                                                             'amount': amount}]
+                        'txid': (str) claim txid,
+                        'nout': (str) claim nout,
+                        'signature_is_valid': (bool), included if has_signature,
+                        'value': ClaimDict if decoded, otherwise hex string
+                    }
             }
         """
 
@@ -1926,7 +1927,7 @@ class Daemon(AuthJSONRPCServer):
     @defer.inlineCallbacks
     def jsonrpc_claim_list(self, name):
         """
-        Get claims for a name
+        List current claims and information about them for a given name
 
         Usage:
             claim_list (<name> | --name=<name>)
@@ -1960,23 +1961,27 @@ class Daemon(AuthJSONRPCServer):
     @defer.inlineCallbacks
     def jsonrpc_claim_list_by_channel(self, page=0, page_size=10, uri=None, uris=[]):
         """
-        List claims in a channel by uri
+        Get paginated claims in a channel specified by a channel uri
 
         Usage:
             claim_list_by_channel (<uri> | --uri=<uri>) [<uris>...] [--page=<page>]
                                    [--page_size=<page_size>]
 
         Options:
-            --page=<page>            : which page of results to return (page size: 10)
-            --page_size=<page_size>  : results page size
+            --page=<page>            : which page of results to return where page 1 is the first
+                                       page, defaults to no pages
+            --page_size=<page_size>  : number of results in a page, default of 10
 
         Returns:
             {
                  resolved channel uri: {
-                    'claims_in_channel_pages': total number of pages with <page_size> results
+                    If there was an error:
+                    'error': (str) error message
+
+                    'claims_in_channel_pages': total number of pages with <page_size> results,
 
                     If a page of results was requested:
-                    'returned_page': page number returned
+                    'returned_page': page number returned,
                     'claims_in_channel': [
                         {
                             'absolute_channel_position': (int) claim index number in sorted list of
@@ -2000,7 +2005,7 @@ class Daemon(AuthJSONRPCServer):
                             'signature_is_valid': (bool), included if has_signature,
                             'value': ClaimDict if decoded, otherwise hex string
                         }
-                    ]
+                    ],
                 }
             }
         """

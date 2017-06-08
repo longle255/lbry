@@ -1404,12 +1404,24 @@ class Daemon(AuthJSONRPCServer):
 
         uris = tuple(uris)
         if uri is not None:
-            uris += (uri, )
-        resolved = yield self.session.wallet.resolve(*uris, check_cache=not force)
-        if uri is not None and uris == (uri, ) and resolved:
-            resolved = resolved[uri]
-        results = yield self._render_response(resolved)
-        defer.returnValue(results)
+            uris += (uri,)
+
+        results = {}
+
+        valid_uris = tuple()
+        for u in uris:
+            try:
+                parse_lbry_uri(u)
+                valid_uris += (u, )
+            except URIParseError:
+                results[u] = {"error": "%s is not a valid uri" % u}
+
+        resolved = yield self.session.wallet.resolve(*valid_uris, check_cache=not force)
+
+        for resolved_uri in resolved:
+            results[resolved_uri] = resolved[resolved_uri]
+        response = yield self._render_response(results)
+        defer.returnValue(response)
 
     @AuthJSONRPCServer.auth_required
     @defer.inlineCallbacks
@@ -2013,16 +2025,24 @@ class Daemon(AuthJSONRPCServer):
         uris = tuple(uris)
         if uri is not None:
             uris += (uri, )
-        for chan_uri in uris:
-            parsed = parse_lbry_uri(chan_uri)
-            if not parsed.is_channel:
-                raise Exception("%s is not a channel uri" % parsed.name)
-            elif parsed.path:
-                raise Exception("%s is a claim in a channel" % parsed.path)
 
-        resolved = yield self.session.wallet.resolve(*uris, check_cache=False, page=page,
-                                                     page_size=page_size)
         results = {}
+
+        valid_uris = tuple()
+        for chan_uri in uris:
+            try:
+                parsed = parse_lbry_uri(chan_uri)
+                if not parsed.is_channel:
+                    results[chan_uri] = {"error": "%s is not a channel uri" % parsed.name}
+                elif parsed.path:
+                    results[chan_uri] = {"error": "%s is a claim in a channel" % parsed.path}
+                else:
+                    valid_uris += (chan_uri, )
+            except URIParseError:
+                results[chan_uri] = {"error": "%s is not a valid uri" % chan_uri}
+
+        resolved = yield self.session.wallet.resolve(*valid_uris, check_cache=False, page=page,
+                                                     page_size=page_size)
         for u in resolved:
             if 'error' in resolved[u]:
                 results[u] = resolved[u]
